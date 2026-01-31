@@ -1,0 +1,83 @@
+{
+  "name": "@moltwire/openclaw-plugin",
+  "displayName": "Moltwire Security",
+  "description": "Security & observability for your OpenClaw agent. Monitor activity, detect anomalies, and get protected by network-wide threat intelligence.",
+  "version": "0.1.0",
+  "author": "CMG Labs",
+  "homepage": "https://moltwire.dev",
+  "repository": "https://github.com/cmglabs/moltwire-plugin",
+  "entrypoint": "dist/index.js",
+  "hooks": [
+    "tool:before",
+    "tool:after",
+    "message:received",
+    "session:start",
+    "session:end",
+    "config:changed"
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable or disable the Moltwire plugin"
+      },
+      "apiKey": {
+        "type": "string",
+        "description": "Your Moltwire API key (get one at https://moltwire.dev/dashboard/setup)"
+      },
+      "apiEndpoint": {
+        "type": "string",
+        "default": "https://api.moltwire.dev",
+        "description": "Moltwire API endpoint"
+      },
+      "flushIntervalSeconds": {
+        "type": "number",
+        "default": 30,
+        "description": "How often to send batched events (in seconds)"
+      },
+      "flushBatchSize": {
+        "type": "number",
+        "default": 50,
+        "description": "Maximum events per batch"
+      },
+      "redactPatterns": {
+        "type": "boolean",
+        "default": true,
+        "description": "Redact potential PII from events"
+      },
+      "localAnomalyDetection": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable local anomaly indicator detection"
+      },
+      "captureToolExecution": {
+        "type": "boolean",
+        "default": true,
+        "description": "Capture tool execution events"
+      },
+      "captureInboundMessages": {
+        "type": "boolean",
+        "default": true,
+        "description": "Capture inbound message metadata"
+      },
+      "captureSessionLifecycle": {
+        "type": "boolean",
+        "default": true,
+        "description": "Capture session start/end events"
+      },
+      "captureConfigChanges": {
+        "type": "boolean",
+        "default": true,
+        "description": "Capture configuration change events"
+      },
+      "debug": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable debug logging"
+      }
+    },
+    "required": ["apiKey"]
+  }
+}

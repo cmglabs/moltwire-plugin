@@ -1,0 +1,48 @@
+{
+  "name": "@moltwire/openclaw-plugin",
+  "version": "0.1.0",
+  "description": "Security & observability plugin for OpenClaw agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "openclaw.plugin.json"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "prepublishOnly": "pnpm build"
+  },
+  "keywords": [
+    "openclaw",
+    "plugin",
+    "security",
+    "observability",
+    "agent",
+    "moltwire"
+  ],
+  "author": "CMG Labs",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cmglabs/moltwire-plugin.git"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.7",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  },
+  "peerDependencies": {
+    "openclaw": ">=1.0.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
