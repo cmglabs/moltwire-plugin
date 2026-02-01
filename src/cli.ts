@@ -17,14 +17,19 @@ const DEFAULT_API_ENDPOINT = 'https://api.moltwire.com';
 const DEFAULT_APP_URL = 'https://app.moltwire.com';
 
 interface MoltwirePluginConfig {
-  apiKey: string;
+  apiKey?: string;
   apiEndpoint?: string;
   enabled?: boolean;
   [key: string]: unknown;
 }
 
 interface OpenClawConfig {
-  plugins?: Array<[string, MoltwirePluginConfig | Record<string, unknown>]>;
+  plugins?: {
+    entries?: {
+      moltwire?: MoltwirePluginConfig;
+      [key: string]: unknown;
+    };
+  };
   [key: string]: unknown;
 }
 
@@ -92,15 +97,7 @@ function saveConfig(config: OpenClawConfig): void {
  * Get existing Moltwire config from OpenClaw config
  */
 function getMoltwireConfig(config: OpenClawConfig): MoltwirePluginConfig | null {
-  if (!config.plugins) return null;
-
-  for (const plugin of config.plugins) {
-    if (plugin[0] === '@moltwire/openclaw-plugin') {
-      return plugin[1] as MoltwirePluginConfig;
-    }
-  }
-
-  return null;
+  return config.plugins?.entries?.moltwire || null;
 }
 
 /**
@@ -108,22 +105,13 @@ function getMoltwireConfig(config: OpenClawConfig): MoltwirePluginConfig | null 
  */
 function setMoltwireConfig(config: OpenClawConfig, moltwireConfig: MoltwirePluginConfig): OpenClawConfig {
   if (!config.plugins) {
-    config.plugins = [];
+    config.plugins = { entries: {} };
+  }
+  if (!config.plugins.entries) {
+    config.plugins.entries = {};
   }
 
-  // Find and update existing, or add new
-  let found = false;
-  for (let i = 0; i < config.plugins.length; i++) {
-    if (config.plugins[i][0] === '@moltwire/openclaw-plugin') {
-      config.plugins[i][1] = moltwireConfig;
-      found = true;
-      break;
-    }
-  }
-
-  if (!found) {
-    config.plugins.push(['@moltwire/openclaw-plugin', moltwireConfig]);
-  }
+  config.plugins.entries.moltwire = moltwireConfig;
 
   return config;
 }
@@ -318,7 +306,7 @@ async function showStatus(): Promise<void> {
   }
 
   console.log(`API Endpoint: ${moltwireConfig.apiEndpoint || DEFAULT_API_ENDPOINT}`);
-  console.log(`API Key: ${moltwireConfig.apiKey.slice(0, 12)}...`);
+  console.log(`API Key: ${moltwireConfig.apiKey ? moltwireConfig.apiKey.slice(0, 12) + '...' : 'Not set'}`);
   console.log(`Enabled: ${moltwireConfig.enabled !== false ? 'Yes' : 'No'}`);
 
   // Check agent ID
@@ -326,6 +314,12 @@ async function showStatus(): Promise<void> {
     const rawId = readFileSync(AGENT_ID_FILE, 'utf-8').trim();
     const agentId = createAgentId(rawId);
     console.log(`Agent ID: ${agentId.slice(0, 8)}...`);
+  }
+
+  if (!moltwireConfig.apiKey) {
+    log('\n❌ API key is not configured', 'red');
+    console.log('Run `moltwire setup` to configure.');
+    return;
   }
 
   // Validate API key
@@ -355,7 +349,7 @@ async function runSetup(): Promise<void> {
   const config = loadConfig();
   const existingConfig = getMoltwireConfig(config);
 
-  if (existingConfig) {
+  if (existingConfig?.apiKey) {
     log('⚠ Moltwire is already configured.', 'yellow');
     console.log(`  API Key: ${existingConfig.apiKey.slice(0, 12)}...`);
     console.log('');
@@ -487,7 +481,7 @@ async function runManualSetup(): Promise<void> {
   const config = loadConfig();
   const existingConfig = getMoltwireConfig(config);
 
-  if (existingConfig) {
+  if (existingConfig?.apiKey) {
     log('⚠ Moltwire is already configured.', 'yellow');
     console.log(`  API Key: ${existingConfig.apiKey.slice(0, 12)}...`);
     console.log('');
