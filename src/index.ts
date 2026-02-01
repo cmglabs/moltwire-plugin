@@ -51,6 +51,21 @@ export default function moltwirePlugin(api: any, userConfig: Partial<MoltwireCon
     return;
   }
 
+  // Register before_agent_start hook to prompt for setup when no API key
+  api.on?.('before_agent_start', async () => {
+    if (!validation.hasApiKey) {
+      console.log('[Moltwire] before_agent_start: No API key, injecting setup prompt');
+      return {
+        systemMessages: [
+          `[MOLTWIRE SETUP REQUIRED] The Moltwire security plugin is installed but not yet configured. ` +
+          `Please call the moltwire_setup tool to get the setup URL, then share it with the user so they can complete registration. ` +
+          `This only needs to be done once.`
+        ]
+      };
+    }
+    return {};
+  });
+
   /**
    * Flush buffered events to the API
    */
@@ -175,13 +190,50 @@ export default function moltwirePlugin(api: any, userConfig: Partial<MoltwireCon
     console.log('[Moltwire] Log watcher started');
   }
 
+  /**
+   * Initialize setup flow - returns setup URL or null on error
+   */
+  async function initSetup(): Promise<string | null> {
+    const { randomUUID } = await import('crypto');
+    const token = randomUUID();
+    const apiEndpoint = config.apiEndpoint || 'https://api.moltwire.com';
+    const appUrl = 'https://app.moltwire.com';
+
+    try {
+      const response = await fetch(`${apiEndpoint}/v1/register/init`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'moltwire-plugin/0.1.2'
+        },
+        body: JSON.stringify({
+          token,
+          agent_id: agentId,
+          platform: process.platform,
+          node_version: process.version
+        })
+      });
+
+      if (!response.ok) {
+        console.error('[Moltwire] Failed to initialize registration');
+        return null;
+      }
+
+      savePendingToken(token);
+      return `${appUrl}/setup?token=${token}&agent=${agentId}`;
+    } catch (error) {
+      console.error('[Moltwire] Setup error:', error);
+      return null;
+    }
+  }
+
   // Start plugin
   async function start() {
     console.log('[Moltwire] start() called, hasApiKey:', validation.hasApiKey);
 
-    // Skip full startup if no API key configured
+    // If no API key, just log and return - the before_agent_start hook will handle prompting
     if (!validation.hasApiKey) {
-      api.logger?.info?.('[Moltwire] Plugin loaded (no API key). Run `moltwire setup` to connect.');
+      console.log('[Moltwire] No API key configured. Will prompt for setup on first agent interaction.');
       return;
     }
 
@@ -278,53 +330,26 @@ export default function moltwirePlugin(api: any, userConfig: Partial<MoltwireCon
     description: 'Initialize Moltwire setup - returns a URL for the user to complete signup in their browser',
     parameters: { type: 'object', properties: {}, required: [] },
     async execute(_id: string) {
-      const { randomUUID } = await import('crypto');
-      const token = randomUUID();
-      const apiEndpoint = config.apiEndpoint || 'https://api.moltwire.com';
-      const appUrl = 'https://app.moltwire.com';
+      const setupUrl = await initSetup();
 
-      try {
-        const response = await fetch(`${apiEndpoint}/v1/register/init`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'moltwire-plugin/0.1.0'
-          },
-          body: JSON.stringify({
-            token,
-            agent_id: agentId,
-            platform: process.platform,
-            node_version: process.version
-          })
-        });
-
-        if (!response.ok) {
-          return textResult({
-            success: false,
-            error: 'Failed to initialize registration with Moltwire API'
-          });
-        }
-
-        savePendingToken(token);
-        const setupUrl = `${appUrl}/setup?token=${token}&agent=${agentId}`;
-
-        return textResult({
-          success: true,
-          message: 'Registration initialized! Complete signup in your browser.',
-          url: setupUrl,
-          instructions: [
-            '1. Open the URL above in your browser',
-            '2. Sign up or log in to Moltwire',
-            '3. The API key will be automatically configured',
-            '4. Restart the agent to activate monitoring'
-          ]
-        });
-      } catch (error) {
+      if (!setupUrl) {
         return textResult({
           success: false,
-          error: `Failed to connect to Moltwire API: ${error}`
+          error: 'Failed to initialize registration with Moltwire API'
         });
       }
+
+      return textResult({
+        success: true,
+        message: 'Registration initialized! Complete signup in your browser.',
+        url: setupUrl,
+        instructions: [
+          '1. Open the URL above in your browser',
+          '2. Sign up or log in to Moltwire',
+          '3. The API key will be automatically configured',
+          '4. Run `moltwire check_registration` to activate'
+        ]
+      });
     }
   });
 

@@ -1,6 +1,19 @@
-# @moltwire/openclaw-plugin
+# @cmglabs/moltwire-plugin
 
 Security & observability plugin for OpenClaw agents.
+
+## Quick Start
+
+1. Install the plugin:
+   ```bash
+   openclaw plugins install @cmglabs/moltwire-plugin
+   ```
+
+2. Message your agent - it will automatically guide you through setup and provide a registration URL.
+
+3. Open the URL in your browser and complete signup.
+
+That's it! Your agent is now protected by Moltwire.
 
 ## Features
 
@@ -8,45 +21,6 @@ Security & observability plugin for OpenClaw agents.
 - **Anomaly Detection** - Local detection of suspicious patterns
 - **Privacy-First** - Only metadata is collected, never message content
 - **Network Protection** - Benefit from threat intelligence across all Moltwire agents
-
-## Installation
-
-```bash
-openclaw plugins install @moltwire/openclaw-plugin
-```
-
-## Configuration
-
-Add to your `~/.openclaw/openclaw.json`:
-
-```json
-{
-  "plugins": {
-    "@moltwire/openclaw-plugin": {
-      "apiKey": "mw_live_your_key_here"
-    }
-  }
-}
-```
-
-Get your API key at [https://moltwire.com/dashboard/setup](https://moltwire.com/dashboard/setup)
-
-### Configuration Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | boolean | `true` | Enable/disable the plugin |
-| `apiKey` | string | required | Your Moltwire API key |
-| `apiEndpoint` | string | `https://api.moltwire.com` | API endpoint |
-| `flushIntervalSeconds` | number | `30` | Batch flush interval |
-| `flushBatchSize` | number | `50` | Max events per batch |
-| `redactPatterns` | boolean | `true` | Redact potential PII |
-| `localAnomalyDetection` | boolean | `true` | Enable local anomaly detection |
-| `captureToolExecution` | boolean | `true` | Capture tool events |
-| `captureInboundMessages` | boolean | `true` | Capture message metadata |
-| `captureSessionLifecycle` | boolean | `true` | Capture session events |
-| `captureConfigChanges` | boolean | `true` | Capture config changes |
-| `debug` | boolean | `false` | Enable debug logging |
 
 ## Privacy
 
@@ -63,6 +37,18 @@ Only metadata is collected:
 - Message length and type (not content)
 - Session timing and configuration
 - Anomaly indicators
+
+## Configuration Options
+
+These can be set in `~/.openclaw/openclaw.json` under `plugins.moltwire-plugin`:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable/disable the plugin |
+| `flushIntervalSeconds` | number | `30` | Batch flush interval |
+| `flushBatchSize` | number | `50` | Max events per batch |
+| `redactPatterns` | boolean | `true` | Redact potential PII |
+| `localAnomalyDetection` | boolean | `true` | Enable local anomaly detection |
 
 ## Development
 

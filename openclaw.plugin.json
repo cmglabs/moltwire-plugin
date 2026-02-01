@@ -1,7 +1,7 @@
 {
-  "id": "moltwire",
+  "id": "moltwire-plugin",
   "name": "Moltwire Security",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "description": "Security & observability for your OpenClaw agent. Monitor activity, detect anomalies, and get protected by network-wide threat intelligence.",
   "configSchema": {
     "type": "object",
