@@ -100,25 +100,64 @@ console.log('[Moltwire] isEnabled set to true');
 console.log('[Moltwire] status tool called, isEnabled =', isEnabled);
 ```
 
-### 8. Hooks Not Firing
+### 8. Hooks Not Firing (SUPERSEDED)
 
-**Problem:** Initially used `api.registerHook()` which doesn't work for plugins.
+**Problem:** Initially used `api.registerHook()` which doesn't work for plugins. Then tried `api.on()` but `before_tool_call` and `after_tool_call` don't exist in OpenClaw.
 
-**Solution:** Use `api.on()` instead (learned from Promitheus plugin):
+**Solution:** Abandoned hooks entirely. Use log file parsing instead (see #9).
+
+### 9. OpenClaw Has No Tool Execution Hooks
+
+**Problem:** OpenClaw doesn't emit `before_tool_call` or `after_tool_call` events. Only `message_received` and `before_agent_start` work.
+
+**Solution:** Parse the OpenClaw log file directly using `LogWatcher` class:
 ```typescript
-api.on('message_received', (context) => { ... });
-api.on('before_tool_call', (context) => { ... });
-api.on('after_tool_call', (context, result) => { ... });
+// Log file location: /tmp/openclaw/openclaw-YYYY-MM-DD.log
+// Use tail -F to follow the log file
+this.tailProcess = spawn('tail', ['-F', '-n', '0', this.logPath]);
+
+// Parse JSON log lines for tool executions
+if (message.includes('embedded run tool start:')) {
+  // Extract runId, tool, toolCallId
+}
+if (message.includes('embedded run tool end:')) {
+  // Calculate duration, emit event
+}
 ```
+
+### 10. Dashboard Field Mismatch (API vs Components)
+
+**Problem:** Dashboard crashed with `Cannot read properties of undefined (reading 'toUpperCase')`.
+
+**Root Cause:** API returned `{ tool: "read" }` but dashboard expected `{ tool_name: "read" }`. Also, events API returned events without `severity` or `message` fields that components expected.
+
+**Solution:**
+1. Fixed API to return `tool_name` instead of `tool` in `top_tools_24h`
+2. Fixed dashboard components to handle missing fields gracefully:
+```typescript
+const toolName = event.tool_name || (event.payload as Record<string, unknown>)?.tool_name as string;
+const severity = event.severity || 'info';
+const message = event.message || event.event_type.replace(/_/g, ' ');
+```
+
+### 11. Dashboard Recent Events Returned Empty
+
+**Problem:** `getRecentEvents()` in api-client.ts was hardcoded to return empty array.
+
+**Solution:**
+1. Added `/v1/dashboard/events` endpoint to API for global recent events
+2. Updated dashboard to call actual endpoint instead of returning `[]`
 
 ## Key Learnings
 
 ### OpenClaw Plugin Development
 
-1. **Use `api.on()` for hooks**, not `api.registerHook()` - the latter doesn't work for plugins
-2. **Tool registration requires `_id` parameter**: `async execute(_id: string) { ... }`
-3. **Tool result format**: `{ content: [{ type: 'text', text: '...' }] }`
-4. **Debug logging is essential** - console.log works and shows in gateway logs
+1. **NO tool execution hooks exist** - `before_tool_call` and `after_tool_call` don't work
+2. **Use log file parsing** to capture tool executions via `LogWatcher`
+3. **Tool registration requires `_id` parameter**: `async execute(_id: string) { ... }`
+4. **Tool result format**: `{ content: [{ type: 'text', text: '...' }] }`
+5. **Debug logging is essential** - console.log works and shows in gateway logs
+6. **Log file format**: JSON lines at `/tmp/openclaw/openclaw-YYYY-MM-DD.log`
 
 ### Cloud Run Deployment
 
@@ -154,16 +193,29 @@ api.on('after_tool_call', (context, result) => { ... });
 ## Final Working State
 
 - **Plugin**: Loads with API key, `isEnabled = true`
-- **Hooks**: `message_received`, `before_tool_call`, `after_tool_call` all firing
-- **Events**: Collected, buffered, flushed to API
-- **Database**: Events stored in NeonDB with correct agent_id
-- **Dashboard**: Shows agents and events at app.moltwire.com
+- **Log Watcher**: Parses `/tmp/openclaw/openclaw-YYYY-MM-DD.log` for events
+- **Events Captured**: `inbound_message` and `tool_execution` (with tool names like `web_fetch`, `read`, `exec`)
+- **Database**: Events stored in NeonDB with correct agent_id and tool_name in payload
+- **Dashboard**: Shows agents, top tools, and recent events at app.moltwire.com
 
 ## Files Modified
 
-- `moltwire-plugin/src/index.ts` - Hook registration, debug logging, tool fixes
+### Plugin
+- `moltwire-plugin/src/index.ts` - Removed hooks, added log watcher integration
+- `moltwire-plugin/src/log-watcher.ts` - NEW: Parses OpenClaw log file for events
 - `moltwire-plugin/src/config.ts` - API key file path, debug logging
+
+### API
 - `moltwire-api/src/routes/register.ts` - Database storage for tokens
+- `moltwire-api/src/routes/dashboard.ts` - Added `/events` endpoint for recent events
+- `moltwire-api/src/services/dashboard.ts` - Fixed `tool_name` field, added `getRecentEvents()`
+- `moltwire-api/src/types/dashboard.ts` - Fixed `tool_name` in type definition
 - `moltwire-api/src/db/cache.ts` - Database functions for pending_registrations
+
+### Dashboard
 - `moltwire-dashboard/src/app/login/page.tsx` - Preserve callbackUrl
 - `moltwire-dashboard/src/app/api/keys/route.ts` - New proxy endpoint
+- `moltwire-dashboard/src/lib/api-client.ts` - Fixed `getRecentEvents()` to call API
+- `moltwire-dashboard/src/components/dashboard/RecentEvents.tsx` - Handle missing fields
+- `moltwire-dashboard/src/components/dashboard/EventTimeline.tsx` - Handle missing fields
+- `moltwire-dashboard/src/components/dashboard/AlertDetail.tsx` - Handle missing fields
