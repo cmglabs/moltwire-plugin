@@ -29,7 +29,7 @@ Add to your `~/.openclaw/openclaw.json`:
 }
 ```
 
-Get your API key at [https://moltwire.dev/dashboard/setup](https://moltwire.dev/dashboard/setup)
+Get your API key at [https://moltwire.com/dashboard/setup](https://moltwire.com/dashboard/setup)
 
 ### Configuration Options
 
@@ -37,7 +37,7 @@ Get your API key at [https://moltwire.dev/dashboard/setup](https://moltwire.dev/
 |--------|------|---------|-------------|
 | `enabled` | boolean | `true` | Enable/disable the plugin |
 | `apiKey` | string | required | Your Moltwire API key |
-| `apiEndpoint` | string | `https://api.moltwire.dev` | API endpoint |
+| `apiEndpoint` | string | `https://api.moltwire.com` | API endpoint |
 | `flushIntervalSeconds` | number | `30` | Batch flush interval |
 | `flushBatchSize` | number | `50` | Max events per batch |
 | `redactPatterns` | boolean | `true` | Redact potential PII |

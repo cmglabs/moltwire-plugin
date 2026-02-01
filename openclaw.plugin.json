@@ -4,7 +4,7 @@
   "description": "Security & observability for your OpenClaw agent. Monitor activity, detect anomalies, and get protected by network-wide threat intelligence.",
   "version": "0.1.0",
   "author": "CMG Labs",
-  "homepage": "https://moltwire.dev",
+  "homepage": "https://moltwire.com",
   "repository": "https://github.com/cmglabs/moltwire-plugin",
   "entrypoint": "dist/index.js",
   "hooks": [
@@ -25,11 +25,11 @@
       },
       "apiKey": {
         "type": "string",
-        "description": "Your Moltwire API key (get one at https://moltwire.dev/dashboard/setup)"
+        "description": "Your Moltwire API key (get one at https://moltwire.com/dashboard/setup)"
       },
       "apiEndpoint": {
         "type": "string",
-        "default": "https://api.moltwire.dev",
+        "default": "https://api.moltwire.com",
         "description": "Moltwire API endpoint"
       },
       "flushIntervalSeconds": {

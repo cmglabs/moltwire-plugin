@@ -1,8 +1,9 @@
 import { EventBuffer } from './buffer.js';
 import { EventCollector } from './collector.js';
 import { EventSender } from './sender.js';
+import { ThreatIntelligence } from './threats.js';
 import { loadConfig, validateConfig, getOrCreateAgentId, loadLocalState, saveLocalState, LocalState } from './config.js';
-import { extractDomain } from './classifier.js';
+import { extractDomain, classifyCommand } from './classifier.js';
 import type {
   MoltwireConfig,
   MoltwireEvent,
@@ -17,6 +18,7 @@ import type {
 export * from './types.js';
 export { classifyCommand, extractDomain, isCredentialPath } from './classifier.js';
 export { hashIdentifier, scrubPII, createAgentId, createSessionId } from './anonymizer.js';
+export { ThreatIntelligence } from './threats.js';
 
 /**
  * Moltwire Plugin for OpenClaw
@@ -30,6 +32,7 @@ export class MoltwirePlugin {
   private buffer: EventBuffer;
   private collector: EventCollector;
   private sender: EventSender;
+  private threats: ThreatIntelligence;
   private state: LocalState;
   private flushInterval: NodeJS.Timeout | null = null;
   private isEnabled: boolean = false;
@@ -41,6 +44,7 @@ export class MoltwirePlugin {
     this.buffer = new EventBuffer(100, this.config.flushBatchSize);
     this.collector = new EventCollector(this.agentId, this.config);
     this.sender = new EventSender(this.config);
+    this.threats = new ThreatIntelligence(this.config);
     this.state = loadLocalState();
   }
 
@@ -76,6 +80,9 @@ export class MoltwirePlugin {
       this.config.flushIntervalSeconds * 1000
     );
 
+    // Start threat intelligence polling
+    this.threats.start();
+
     this.isEnabled = true;
     console.log(`[Moltwire] Plugin started. Agent ID: ${this.agentId.slice(0, 8)}...`);
 
@@ -92,6 +99,9 @@ export class MoltwirePlugin {
       clearInterval(this.flushInterval);
       this.flushInterval = null;
     }
+
+    // Stop threat intelligence polling
+    this.threats.stop();
 
     // Final flush
     await this.flush();
@@ -160,12 +170,41 @@ export class MoltwirePlugin {
     });
     this.queueEvent(event);
 
+    // Extract domain and command pattern for threat checking
+    const commandStr = context.command || context.args?.join(' ') || '';
+    const domain = extractDomain(commandStr);
+    const commandPattern = classifyCommand(context);
+
+    // Check against threat intelligence
+    if (domain && this.threats.isDomainBlocked(domain)) {
+      const anomalyEvent = this.collector.collectAnomalyIndicator(
+        'matched_threat_signature',
+        `Blocked domain accessed: ${domain}`,
+        'critical'
+      );
+      this.queueEvent(anomalyEvent);
+    }
+
+    // Check for signature matches
+    const matches = this.threats.matchSignatures({
+      domain,
+      commandPattern,
+      toolName: context.toolName
+    });
+
+    for (const match of matches) {
+      const anomalyEvent = this.collector.collectAnomalyIndicator(
+        'matched_threat_signature',
+        `Matched threat signature: ${match.title}`,
+        match.severity
+      );
+      this.queueEvent(anomalyEvent);
+    }
+
     // Check for anomalies
     if (this.config.localAnomalyDetection) {
       // Check for credential access
-      const credentialEvent = this.collector.checkCredentialAccess(
-        context.command || context.args?.join(' ') || ''
-      );
+      const credentialEvent = this.collector.checkCredentialAccess(commandStr);
       this.queueEvent(credentialEvent);
 
       // Check for unusual hour
@@ -176,7 +215,6 @@ export class MoltwirePlugin {
       this.trackRapidExecution();
 
       // Track new domains
-      const domain = extractDomain(context.command || context.args?.join(' ') || '');
       if (domain) {
         this.trackNewDomain(domain);
       }
@@ -220,6 +258,33 @@ export class MoltwirePlugin {
   onConfigChanged(context: ConfigChangeContext): void {
     const event = this.collector.collectConfigChange(context);
     this.queueEvent(event);
+
+    // Check against threat intelligence for skill installs
+    if (context.changeType === 'skill_installed' && context.skillName) {
+      // Check if skill is blocked
+      if (this.threats.isSkillBlocked(context.skillName)) {
+        const anomalyEvent = this.collector.collectAnomalyIndicator(
+          'matched_threat_signature',
+          `Blocked skill installed: ${context.skillName}`,
+          'critical'
+        );
+        this.queueEvent(anomalyEvent);
+      }
+
+      // Check for signature matches
+      const matches = this.threats.matchSignatures({
+        skillName: context.skillName
+      });
+
+      for (const match of matches) {
+        const anomalyEvent = this.collector.collectAnomalyIndicator(
+          'matched_threat_signature',
+          `Matched threat signature for skill: ${match.title}`,
+          match.severity
+        );
+        this.queueEvent(anomalyEvent);
+      }
+    }
 
     // Check for untrusted skill installs
     if (
@@ -312,6 +377,41 @@ export class MoltwirePlugin {
    */
   isPluginEnabled(): boolean {
     return this.isEnabled;
+  }
+
+  /**
+   * Get threat intelligence instance
+   */
+  getThreatIntelligence(): ThreatIntelligence {
+    return this.threats;
+  }
+
+  /**
+   * Get count of active threat signatures
+   */
+  getSignatureCount(): number {
+    return this.threats.getSignatureCount();
+  }
+
+  /**
+   * Check if a domain is blocked
+   */
+  isDomainBlocked(domain: string): boolean {
+    return this.threats.isDomainBlocked(domain);
+  }
+
+  /**
+   * Check if a skill is blocked
+   */
+  isSkillBlocked(skillName: string): boolean {
+    return this.threats.isSkillBlocked(skillName);
+  }
+
+  /**
+   * Force refresh threat intelligence
+   */
+  async refreshThreatData(): Promise<void> {
+    await this.threats.refresh();
   }
 }
 

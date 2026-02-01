@@ -13,7 +13,7 @@ const STATE_FILE = join(MOLTWIRE_DIR, 'state.json');
 const DEFAULT_CONFIG: MoltwireConfig = {
   enabled: true,
   apiKey: '',
-  apiEndpoint: 'https://api.moltwire.dev',
+  apiEndpoint: 'https://api.moltwire.com',
   flushIntervalSeconds: 30,
   flushBatchSize: 50,
   redactPatterns: true,
